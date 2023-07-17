@@ -1,0 +1,44 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../Pico/Pico-v1.5.1/picoprobe"
+		},
+		{
+			"path": "../ESP32/lwesp"
+		}
+	],
+	"settings": {
+		"cmake.statusbar.advanced": {
+			"debug": {
+				"visibility": "hidden"
+			},
+			"launch": {
+				"visibility": "hidden"
+			},
+			"build": {
+				"visibility": "hidden"
+			},
+			"buildTarget": {
+				"visibility": "hidden"
+			}
+		},
+		"files.associations": {
+			"spi.h": "c",
+			"time.h": "c",
+			"timer.h": "c",
+			"rtc.h": "c",
+			"lv_font.h": "c",
+			"lv_demo_music_list.h": "c",
+			"lv_demo_music.h": "c",
+			"lv_demos.h": "c",
+			"lv_demo_benchmark.h": "c",
+			"lvgl.h": "c",
+			"algorithm": "c",
+			"limits": "c",
+			"pwm.h": "c"
+		}
+	}
+}

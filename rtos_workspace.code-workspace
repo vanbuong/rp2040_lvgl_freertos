@@ -38,7 +38,8 @@
 			"lvgl.h": "c",
 			"algorithm": "c",
 			"limits": "c",
-			"pwm.h": "c"
+			"pwm.h": "c",
+			"freertos.h": "c"
 		}
 	}
 }

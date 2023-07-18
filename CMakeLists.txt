@@ -9,7 +9,7 @@ add_definitions(-DLV_FONT_MONTSERRAT_8=1
 -DLV_FONT_MONTSERRAT_26=1
 -DPICO_STACK_SIZE=0x1000
 -DPICO_HEAP_SIZE=0x4000
--DLWESP_SYS_PORT=freertos
+-DLWESP_SYS_PORT="freertos"
 )
 
 set(FREERTOS_KERNEL_PATH "C:\\Working\\FreeRTOSv202212.01\\FreeRTOS\\Source")
@@ -30,6 +30,10 @@ add_executable(lvgl_freertos
         main.c
         main_blinky.c
         st7789.c
+        lwesp_ll_rp2040.c
+        ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/sntp.c
+        ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/station_manager.c
+        ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/utils.c
         )
 
 pico_set_program_name(lvgl_freertos "lvgl_freertos")
@@ -44,12 +48,13 @@ target_compile_definitions(lvgl_freertos PRIVATE
 
 target_include_directories(lvgl_freertos PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-        ${CMAKE_CURRENT_LIST_DIR}/../)
+        ${CMAKE_CURRENT_LIST_DIR}/../
+        ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/include)
 
 target_link_libraries(lvgl_freertos
         pico_stdlib
         FreeRTOS-Kernel
-        FreeRTOS-Kernel-Heap1
+        FreeRTOS-Kernel-Heap4
         lvgl
         lvgl_examples
         lvgl_demos

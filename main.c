@@ -57,6 +57,9 @@
 #include "st7789.h"
 #include "lv_conf.h"
 #include "lvgl/lvgl.h"
+#include "lwesp/lwesp.h"
+#include "station_manager.h"
+#include "sntp.h"
 
 /* Library includes. */
 #include <stdio.h>
@@ -206,6 +209,48 @@ void gui_task(void* param)
     }
 }
 
+lwespr_t
+examples_common_lwesp_callback_func(lwesp_evt_t* evt) {
+    switch (lwesp_evt_get_type(evt)) {
+        case LWESP_EVT_AT_VERSION_NOT_SUPPORTED: {
+            lwesp_sw_version_t v_min, v_curr;
+
+            lwesp_get_min_at_fw_version(&v_min);
+            lwesp_get_current_at_fw_version(&v_curr);
+
+            printf("Current ESP[8266/32[-C3]] AT version is not supported by the library\r\n");
+            printf("Minimum required AT version is: %08X\r\n", (unsigned)v_min.version);
+            printf("Current AT version is: %08X\r\n", (unsigned)v_curr.version);
+            break;
+        }
+        case LWESP_EVT_INIT_FINISH: {
+            printf("Library initialized!\r\n");
+            break;
+        }
+        case LWESP_EVT_RESET_DETECTED: {
+            printf("Device reset detected!\r\n");
+            break;
+        }
+        default: break;
+    }
+    return lwespOK;
+}
+
+void lwesp_init_thread(void* param)
+{
+    /* Initialize ESP with common callback for all examples */
+    printf("Initializing LwESP\r\n");
+    if (lwesp_init(examples_common_lwesp_callback_func, 1) != lwespOK) {
+        printf("Cannot initialize LwESP!\r\n");
+    } else {
+        printf("LwESP initialized!\r\n");
+    }
+
+    station_manager_connect_to_preferred_access_point(1);
+
+    vTaskDelete(NULL);
+}
+
 int main( void )
 {
     TimerHandle_t xExampleSoftwareTimer = NULL;
@@ -215,7 +260,9 @@ int main( void )
     prvSetupHardware();
     gui_init();
 
+
     xTaskCreate(gui_task, "gui_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(lwesp_init_thread, "lwesp_init_task", configMINIMAL_STACK_SIZE * 4, NULL, configMAX_PRIORITIES - 1, NULL);
 
     /* Create the software timer as described in the comments at the top of
     this file. */

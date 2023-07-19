@@ -43,6 +43,7 @@
 
 /* Scheduler include files. */
 #include "FreeRTOS.h"
+#include "portable.h"
 #include "task.h"
 #include "semphr.h"
 #include "timers.h"   /* Software timer related API prototypes. */
@@ -55,6 +56,7 @@
 #include "hardware/clocks.h"
 #include "pico/time.h"
 #include "st7789.h"
+#include "rfid.h"
 #include "lv_conf.h"
 #include "lvgl/lvgl.h"
 #include "lwesp/lwesp.h"
@@ -83,27 +85,13 @@ converted to ticks using the pdMS_TO_TICKS() macro. */
 or 0 to run the more comprehensive test and demo application. */
 
 /*-----------------------------------------------------------*/
-static volatile bool led_state;
-
+static void lv_btnmatrix_1(void);
+static void lv_btn_1(void);
+void set_group_scr1(void);
+void set_group_scr2(void);
 static void keypad_init(void);
 static void keypad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data);
 static uint32_t keypad_get_key(void);
-lv_indev_t * indev_keypad;
-
-bool screen_state = true;
-lv_obj_t * screen1;
-lv_obj_t * screen2;
-lv_obj_t * group;
-lv_obj_t * btnm1;
-lv_obj_t * btn1;
-lv_obj_t * btn2;
-lv_obj_t * btn3;
-lv_obj_t * btn4;
-lv_obj_t * slider;
-lv_obj_t * slider_label;
-lv_obj_t * datetime;
-lv_obj_t * arc;
-lv_style_t style;
 /*
  * Configure the hardware as necessary to run this demo.
  */
@@ -120,6 +108,25 @@ void vApplicationMallocFailedHook( void );
 void vApplicationIdleHook( void );
 void vApplicationStackOverflowHook( TaskHandle_t pxTask, char *pcTaskName );
 void vApplicationTickHook( void );
+
+static volatile bool led_state;
+lv_indev_t * indev_keypad;
+
+bool screen_state = true;
+lv_obj_t * screen1;
+lv_obj_t * screen2;
+lv_obj_t * group;
+lv_obj_t * btnm1;
+lv_obj_t * btn1;
+lv_obj_t * btn2;
+lv_obj_t * btn3;
+lv_obj_t * btn4;
+lv_obj_t * slider;
+lv_obj_t * slider_label;
+lv_obj_t * datetime;
+lv_obj_t * rfid_label;
+lv_obj_t * arc;
+lv_style_t style;
 
 /*-----------------------------------------------------------*/
 
@@ -203,6 +210,12 @@ void gui_task(void* param)
 
         /* Try to take the semaphore, call lvgl related function on success */
         if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
+            char str[20];
+            datetime_t t;
+            rtc_get_datetime(&t);
+            uint8_t hour = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12: t.hour);
+            snprintf(str, sizeof(str), "#ffffff %02d:%02d %s#", hour, t.min, t.hour < 12 ? "AM" : "PM");
+            lv_label_set_text(datetime, str);
             lv_task_handler();
             xSemaphoreGive(xGuiSemaphore);
        }
@@ -250,7 +263,15 @@ void lwesp_init_thread(void* param)
 
     vTaskDelete(NULL);
 }
+void rfid_callback(void *data)
+{
+    uint8_t *d = (uint8_t*) data;
+    char *str = (char*)pvPortCalloc(1, 20);
 
+    sprintf(str, "0x%02x 0x%02x 0x%02x 0x%02x", d[0], d[1], d[2], d[3]);
+
+    lv_event_send(screen1, LV_EVENT_REFRESH, (void*)str);
+}
 int main( void )
 {
     TimerHandle_t xExampleSoftwareTimer = NULL;
@@ -259,9 +280,10 @@ int main( void )
     /* Configure the hardware ready to run the demo. */
     prvSetupHardware();
     gui_init();
-
+    rfid_init();
 
     xTaskCreate(gui_task, "gui_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(rfid_task, "rfid_task", configMINIMAL_STACK_SIZE, &rfid_callback, tskIDLE_PRIORITY + 1, NULL);
     xTaskCreate(lwesp_init_thread, "lwesp_init_task", configMINIMAL_STACK_SIZE * 4, NULL, configMAX_PRIORITIES - 1, NULL);
 
     /* Create the software timer as described in the comments at the top of
@@ -375,6 +397,27 @@ static void event_handler2(lv_event_t * e)
 {
 }
 
+static void event_screen1_handler(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    const char *str = (char*)lv_event_get_param(e);
+    if (code == LV_EVENT_REFRESH) {
+        lv_label_set_text(rfid_label, str);
+        vPortFree(str);
+        // lv_scr_load(screen2);
+        // set_group_scr2();
+    }
+}
+
+static void event_screen2_handler(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_REFRESH) {
+        lv_scr_load(screen1);
+        set_group_scr1();
+    }
+}
+
 void set_group_scr1(void)
 {
     lv_group_remove_all_objs(group);
@@ -396,7 +439,7 @@ void set_group_scr2(void)
 
 static const char * btnm_map[] = {"1", "2", "3", "4", "5", "\n",
                                   "6", "7", "8", "9", "0", "\n",
-                                  "Action1", "Action2", ""
+                                  "RFID: ", ""
                                  };
 
 void lv_btnmatrix_1(void)
@@ -406,9 +449,9 @@ void lv_btnmatrix_1(void)
     lv_btnmatrix_set_map(btnm1, btnm_map);
     lv_btnmatrix_set_btn_width(btnm1, 10, 2);        /*Make "Action1" twice as wide as "Action2"*/
     lv_btnmatrix_set_btn_ctrl(btnm1, 10, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_btn_ctrl(btnm1, 11, LV_BTNMATRIX_CTRL_CHECKABLE | LV_BTNMATRIX_CTRL_CHECKED);
     lv_obj_align(btnm1, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_event_cb(btnm1, event_handler2, LV_EVENT_ALL, NULL);
+    lv_obj_add_event_cb(screen2, event_screen2_handler, LV_EVENT_REFRESH, NULL);
 }
 
 static void set_angle(void * obj, int32_t v)
@@ -452,6 +495,12 @@ void lv_btn_1(void)
     slider_label = lv_label_create(screen1);
     lv_label_set_text(slider_label, "100%");
     lv_obj_align_to(slider_label, slider, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
+
+    /*Create a label above the slider*/
+    rfid_label = lv_label_create(screen1);
+    lv_label_set_text(rfid_label, "RFID: ");
+    lv_obj_set_style_text_font(rfid_label, LV_FONT_SMALL, 0);
+    lv_obj_align_to(rfid_label, slider, LV_ALIGN_OUT_TOP_LEFT, 0, -10);
 
    
     lv_obj_t * arc = lv_arc_create(screen1);
@@ -550,6 +599,8 @@ void lv_btn_1(void)
     lv_label_set_text(label, "10:45");
     lv_obj_set_style_text_font(label, LV_FONT_SMALL, 0);
     lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, 7);
+
+    lv_obj_add_event_cb(screen1, event_screen1_handler, LV_EVENT_REFRESH, NULL);
 }
 /*-----------------------------------------------------------*/
 

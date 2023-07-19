@@ -31,6 +31,7 @@ add_executable(lvgl_freertos
         main_blinky.c
         st7789.c
         lwesp_ll_rp2040.c
+        rfid.c
         ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/sntp.c
         ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/station_manager.c
         ${CMAKE_CURRENT_LIST_DIR}/../lwesp/snippets/utils.c

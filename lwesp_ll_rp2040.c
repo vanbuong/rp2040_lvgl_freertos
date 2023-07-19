@@ -254,11 +254,13 @@ lwesp_ll_deinit(lwesp_ll_t* ll) {
  */
 void
 LWESP_USART_IRQHANDLER(void) {
+    bool timeout_int = uart_get_hw(uart1)->mis & UART_UARTMIS_OFFSET;
 	while (uart_is_readable(uart1)) {
-		usart_mem[write_pos++ & BUFF_MOD] = (uint8_t)uart_getc(uart1);
+		usart_mem[write_pos] = (uint8_t)uart_getc(uart1);
+        write_pos = (write_pos + 1) % BUFF_MOD;
 	}
 
-    if (usart_ll_mbox_id != NULL) {
+    if (timeout_int && usart_ll_mbox_id != NULL) {
         void* d = (void*)1;
         BaseType_t yield = pdFALSE;
         xQueueSendToBackFromISR(usart_ll_mbox_id, &d, &yield);

@@ -12,9 +12,9 @@ add_definitions(-DLV_FONT_MONTSERRAT_8=1
 -DLWESP_SYS_PORT="freertos"
 )
 
-set(FREERTOS_KERNEL_PATH "C:\\Working\\FreeRTOSv202212.01\\FreeRTOS\\Source")
-set(LVGL_PATH "C:\\Working\\FreeRTOSv202212.01\\lvgl")
-set(LWESP_PATH "C:\\Working\\FreeRTOSv202212.01\\lwesp")
+set(FREERTOS_KERNEL_PATH "C:\\Working\\Learn\\FreeRTOSv202212.01\\FreeRTOS\\Source")
+set(LVGL_PATH "C:\\Working\\Learn\\FreeRTOSv202212.01\\lvgl")
+set(LWESP_PATH "C:\\Working\\Learn\\FreeRTOSv202212.01\\lwesp")
 # Pull in FreeRTOS
 include(FreeRTOS_Kernel_import.cmake)
 include(LVGL_import.cmake)
@@ -25,6 +25,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
+
+add_subdirectory(littlefs-lib)
 
 add_executable(lvgl_freertos
         main.c
@@ -65,6 +67,7 @@ target_link_libraries(lvgl_freertos
         hardware_pwm
         pico_time
         lwesp
+        littlefs-lib
         )
 
 pico_add_extra_outputs(lvgl_freertos)

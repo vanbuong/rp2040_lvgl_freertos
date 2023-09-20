@@ -62,6 +62,8 @@
 #include "lwesp/lwesp.h"
 #include "station_manager.h"
 #include "sntp.h"
+#include "lfs.h"
+#include "pico_hal.h"
 
 /* Library includes. */
 #include <stdio.h>
@@ -137,11 +139,6 @@ static void vExampleTimerCallback( TimerHandle_t xTimer )
     execute periodically. */
     led_state = !led_state;
     gpio_put(PICO_DEFAULT_LED_PIN, led_state);
-}
-
-static void vLvglTimerCallback( TimerHandle_t xTimer )
-{
-    lv_tick_inc(1);
 }
 
 void gui_init(void)
@@ -272,19 +269,39 @@ void rfid_callback(void *data)
 
     lv_event_send(screen1, LV_EVENT_REFRESH, (void*)str);
 }
+
+void lfs_init(void) {
+    struct pico_fsstat_t stat;
+
+	int fmount = pico_mount(false);
+	if (fmount == 0) {
+		pico_fsstat(&stat);
+		printf("LFS: blocks %d, block size %d, used %d\n", (int)stat.block_count, (int)stat.block_size,
+				(int)stat.blocks_used);
+		return;
+	}
+	/* fmount failed, try initialize(format) LFS partition */
+	printf("pico_mount(no-format) FAIL err=%d (%s).\n", fmount, pico_errmsg(fmount));
+	fmount = pico_mount(true);
+	if (fmount) {
+		/* really failed */
+		printf("pico_mount(en-format) FAIL err=%d (%s).\n", fmount, pico_errmsg(fmount));
+		return;
+	}
+}
 int main( void )
 {
     TimerHandle_t xExampleSoftwareTimer = NULL;
-    TimerHandle_t xLvglTimer = NULL;
 
     /* Configure the hardware ready to run the demo. */
     prvSetupHardware();
     gui_init();
     rfid_init();
+    lfs_init();
 
     xTaskCreate(gui_task, "gui_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
     xTaskCreate(rfid_task, "rfid_task", configMINIMAL_STACK_SIZE, &rfid_callback, tskIDLE_PRIORITY + 1, NULL);
-    xTaskCreate(lwesp_init_thread, "lwesp_init_task", configMINIMAL_STACK_SIZE * 4, NULL, configMAX_PRIORITIES - 1, NULL);
+    //xTaskCreate(lwesp_init_thread, "lwesp_init_task", configMINIMAL_STACK_SIZE * 4, NULL, configMAX_PRIORITIES - 1, NULL);
 
     /* Create the software timer as described in the comments at the top of
     this file. */
@@ -296,15 +313,6 @@ int main( void )
             vExampleTimerCallback
     );
 
-    xLvglTimer = xTimerCreate(
-            (const char *) "xLvglTimer",
-            mainLVGL_TIMER_PERIOD_MS,
-            pdTRUE,
-            (void *) 0,
-            vLvglTimerCallback
-    );
-
-    xTimerStart(xLvglTimer, 0);
     xTimerStart(xExampleSoftwareTimer, 0);
 
     vTaskStartScheduler();
@@ -631,7 +639,7 @@ void vApplicationIdleHook( void )
 
 void vApplicationTickHook( void )
 {
-
+    lv_tick_inc(1);
 }
 
 /*Initialize your keypad*/

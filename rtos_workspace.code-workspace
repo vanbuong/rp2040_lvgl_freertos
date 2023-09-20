@@ -8,6 +8,15 @@
 		},
 		{
 			"path": "../ESP32/lwesp"
+		},
+		{
+			"path": "../lwesp"
+		},
+		{
+			"path": "../FreeRTOS/Source"
+		},
+		{
+			"path": "../esp-at"
 		}
 	],
 	"settings": {
@@ -39,7 +48,14 @@
 			"algorithm": "c",
 			"limits": "c",
 			"pwm.h": "c",
-			"freertos.h": "c"
+			"freertos.h": "c",
+			"lwesp.h": "c",
+			"lwesp_includes.h": "c",
+			"lwesp_ll.h": "c",
+			"lwesp_types.h": "c",
+			"lwesp_opt.h": "c",
+			"lwesp_opts.h": "c",
+			"queue.h": "c"
 		}
 	}
 }

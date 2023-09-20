@@ -41,10 +41,17 @@
  * copy & replace here settings you want to change values
  */
 
-#define LWESP_CFG_DBG_INIT                    LWESP_DBG_ON
 #define LWESP_CFG_DBG                         LWESP_DBG_ON
-#define LWESP_CFG_DBG_IPD                       LWESP_DBG_ON
-#define LWESP_CFG_DBG_TYPES_ON                0xff
+#define LWESP_CFG_DBG_TYPES_ON                LWESP_DBG_TYPE_TRACE | LWESP_DBG_TYPE_STATE
+#define LWESP_CFG_DBG_IPD                     LWESP_DBG_OFF
+#define LWESP_CFG_DBG_SERVER                  LWESP_DBG_OFF
+#define LWESP_CFG_DBG_MQTT                    LWESP_DBG_OFF
+#define LWESP_CFG_DBG_MEM                     LWESP_DBG_OFF
+#define LWESP_CFG_DBG_PBUF                    LWESP_DBG_OFF
+#define LWESP_CFG_DBG_CONN                    LWESP_DBG_ON
+#define LWESP_CFG_DBG_VAR                     LWESP_DBG_OFF
+#define LWESP_CFG_DBG_CAYENNE                 LWESP_DBG_OFF
+
 #define LWESP_CFG_AT_ECHO                     0
 #define LWESP_CFG_INPUT_USE_PROCESS           1
 
@@ -52,6 +59,7 @@
 #define LWESP_CFG_ESP32_C3                    1
 #define LWESP_CFG_ESP8266                     0
 #define LWESP_CFG_ESP32                       0
+#define LWESP_CFG_MODE_STATION                1
 #define LWESP_CFG_MODE_ACCESS_POINT           0
 #define LWESP_CFG_KEEP_ALIVE                  0
 #define LWESP_CFG_RESET_ON_INIT               0

@@ -73,6 +73,12 @@
 #define LWESP_USART_RDR_NAME RDR
 #endif /* !defined(LWESP_USART_RDR_NAME) */
 
+#define LWESP_HW_IRQ UART1_IRQ
+#define LWESP_HW     uart1
+#define LWESP_HW_TX  8
+#define LWESP_HW_RX  9
+#define LWESP_HW_RST 21
+
 /* USART memory */
 static uint8_t usart_mem[LWESP_USART_DMA_RX_BUFF_SIZE];
 static uint8_t is_running, initialized;
@@ -123,38 +129,38 @@ prv_configure_uart(uint32_t baudrate) {
     if (!initialized) {
 #if defined(LWESP_RESET_PIN)
         /* Configure RESET pin */
-        gpio_init(21);
-        gpio_set_dir(21, GPIO_OUT);
-        gpio_put(21, 1);
+        gpio_init(LWESP_HW_RST);
+        gpio_set_dir(LWESP_HW_RST, GPIO_OUT);
+        gpio_put(LWESP_HW_RST, 1);
 #endif /* defined(LWESP_RESET_PIN) */
 
         /* Configure USART pins */
         /* TX PIN */
-        gpio_set_function(8, GPIO_FUNC_UART);
+        gpio_set_function(LWESP_HW_TX, GPIO_FUNC_UART);
         /* RX PIN */
-        gpio_set_function(9, GPIO_FUNC_UART);
+        gpio_set_function(LWESP_HW_RX, GPIO_FUNC_UART);
 
         /* Configure UART */
-        uart_init(uart1, baudrate);
+        uart_init(LWESP_HW, baudrate);
 
         // Set UART flow control CTS/RTS, we don't want these, so turn them off
-        uart_set_hw_flow(uart1, false, false);
+        uart_set_hw_flow(LWESP_HW, false, false);
 
         // And set up and enable the interrupt handlers
-        irq_set_exclusive_handler(UART1_IRQ, LWESP_USART_IRQHANDLER);
+        irq_set_exclusive_handler(LWESP_HW_IRQ, LWESP_USART_IRQHANDLER);
 
         // Now enable the UART to send interrupts - RX only
-        uart_set_irq_enables(uart1, true, false);
+        uart_set_irq_enables(LWESP_HW, true, false);
 
         // Set FIFO interrupt trigger level
         // This step has to put after uart_set_irq_enables
         // Set rx threshold is 1/2 of FIFO size (16 of 32 bytes)
         const uint32_t UART_RX_THRESHOLD = 2;
-        hw_write_masked(&uart_get_hw(uart1)->ifls, UART_RX_THRESHOLD << UART_UARTIFLS_RXIFLSEL_LSB,
+        hw_write_masked(&uart_get_hw(LWESP_HW)->ifls, UART_RX_THRESHOLD << UART_UARTIFLS_RXIFLSEL_LSB,
                         UART_UARTIFLS_RXIFLSEL_BITS);
 
         /* Enable USART interrupts*/
-        irq_set_enabled(UART1_IRQ, true);
+        irq_set_enabled(LWESP_HW_IRQ, true);
 
         read_pos = 0;
         write_pos = 0;
@@ -164,9 +170,9 @@ prv_configure_uart(uint32_t baudrate) {
     } else {
         vTaskDelay(pdMS_TO_TICKS(10));
         /* Disable and reinit uart again*/
-        uart_get_hw(uart1)->cr &= ~UART_UARTCR_UARTEN_BITS;
-        uart_set_baudrate(uart1, baudrate);
-        uart_get_hw(uart1)->cr |= UART_UARTCR_UARTEN_BITS;
+        uart_get_hw(LWESP_HW)->cr &= ~UART_UARTCR_UARTEN_BITS;
+        uart_set_baudrate(LWESP_HW, baudrate);
+        uart_get_hw(LWESP_HW)->cr |= UART_UARTCR_UARTEN_BITS;
     }
 
     /* Create mbox and start thread */
@@ -184,7 +190,12 @@ prv_configure_uart(uint32_t baudrate) {
  */
 static uint8_t
 prv_reset_device(uint8_t state) {
-    gpio_put(LWESP_RESET_PIN, state);
+    if (state) {
+        gpio_put(LWESP_HW_RST, 0);
+    }
+    else {
+        gpio_put(LWESP_HW_RST, 1);
+    }
     return 1;
 }
 #endif /* defined(LWESP_RESET_PIN) */
@@ -199,7 +210,7 @@ static size_t
 prv_send_data(const void* data, size_t len) {
     const uint8_t* d = data;
 
-    uart_write_blocking(uart1, d, len);
+    uart_write_blocking(LWESP_HW, d, len);
     return len;
 }
 
@@ -254,9 +265,9 @@ lwesp_ll_deinit(lwesp_ll_t* ll) {
  */
 void
 LWESP_USART_IRQHANDLER(void) {
-    bool timeout_int = uart_get_hw(uart1)->mis & UART_UARTMIS_OFFSET;
-	while (uart_is_readable(uart1)) {
-		usart_mem[write_pos] = (uint8_t)uart_getc(uart1);
+    bool timeout_int = uart_get_hw(LWESP_HW)->mis & UART_UARTMIS_OFFSET;
+	while (uart_is_readable(LWESP_HW)) {
+		usart_mem[write_pos] = (uint8_t)uart_getc(LWESP_HW);
         write_pos = (write_pos + 1) % BUFF_MOD;
 	}
 

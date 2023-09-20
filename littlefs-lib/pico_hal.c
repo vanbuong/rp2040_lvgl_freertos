@@ -83,11 +83,13 @@ static inline void cs_deselect(void) {
 
 static inline void write_enable(void) {
     uint8_t write_en = FLASH_WRITE_ENABLE;
+    cs_select();
     spi_write_blocking(PICO_FLASH_SPI_CHAN, &write_en, 1);
+    cs_deselect();
 }
 
 static int pico_hal_init(void) {
-    spi_init(PICO_FLASH_SPI_CHAN, 1 * 1000 * 1000);
+    spi_init(PICO_FLASH_SPI_CHAN, 50 * 1000 * 1000);
 	gpio_set_function(PICO_FLASH_SPI_MISO, GPIO_FUNC_SPI);
 	gpio_set_function(PICO_FLASH_SPI_MOSI, GPIO_FUNC_SPI);
 	gpio_set_function(PICO_FLASH_SPI_SCK, GPIO_FUNC_SPI);
@@ -128,8 +130,10 @@ static void pico_flash_wait_ready(void) {
     uint8_t stat = 0;
     uint8_t cmd = FLASH_STATUS_REG_1;
     do {
+        cs_select();
         spi_write_blocking(PICO_FLASH_SPI_CHAN, &cmd, 1);
         spi_read_blocking(PICO_FLASH_SPI_CHAN, 0xff, &stat, 1);
+        cs_deselect();
     } while (stat);
 }
 static void pico_flash_page_program(uint32_t addr, const uint8_t *data) {
@@ -142,8 +146,10 @@ static void pico_flash_page_program(uint32_t addr, const uint8_t *data) {
         (addr >> 0) & 0xff,
     };
     write_enable();
+    cs_select();
     spi_write_blocking(PICO_FLASH_SPI_CHAN, cmd, sizeof(cmd));
     spi_write_blocking(PICO_FLASH_SPI_CHAN, data, FLASH_PAGE_SIZE);
+    cs_deselect();
     pico_flash_wait_ready();
 }
 
@@ -152,13 +158,11 @@ static int pico_hal_prog(lfs_block_t block, lfs_off_t off, const void* buffer, l
     assert(block < pico_cfg.block_count);
     assert(!(addr & 0xffu));
     uint32_t goal = addr + size;
-    cs_select();
     while (addr < goal) {
         pico_flash_page_program(addr, buffer);
         addr += FLASH_PAGE_SIZE;
         buffer += FLASH_PAGE_SIZE;
     }
-    cs_deselect();
     return LFS_ERR_OK;
 }
 
@@ -171,11 +175,11 @@ static int pico_hal_erase(lfs_block_t block) {
         (addr >> 8) & 0xff,
         (addr >> 0) & 0xff,
     };
-    cs_select();
     write_enable();
+    cs_select();
     spi_write_blocking(PICO_FLASH_SPI_CHAN, cmd, sizeof(cmd));
-    pico_flash_wait_ready();
     cs_deselect();
+    pico_flash_wait_ready();
     return LFS_ERR_OK;
 }
 

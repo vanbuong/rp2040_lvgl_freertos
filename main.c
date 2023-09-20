@@ -296,11 +296,11 @@ int main( void )
     /* Configure the hardware ready to run the demo. */
     prvSetupHardware();
     gui_init();
-    rfid_init();
+    //rfid_init();
     lfs_init();
 
     xTaskCreate(gui_task, "gui_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
-    xTaskCreate(rfid_task, "rfid_task", configMINIMAL_STACK_SIZE, &rfid_callback, tskIDLE_PRIORITY + 1, NULL);
+    //xTaskCreate(rfid_task, "rfid_task", configMINIMAL_STACK_SIZE, &rfid_callback, tskIDLE_PRIORITY + 1, NULL);
     //xTaskCreate(lwesp_init_thread, "lwesp_init_task", configMINIMAL_STACK_SIZE * 4, NULL, configMAX_PRIORITIES - 1, NULL);
 
     /* Create the software timer as described in the comments at the top of

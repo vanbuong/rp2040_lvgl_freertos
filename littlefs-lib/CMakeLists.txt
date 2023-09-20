@@ -1,6 +1,11 @@
 add_library(littlefs-lib INTERFACE)
 target_include_directories(littlefs-lib INTERFACE ${CMAKE_CURRENT_LIST_DIR})
-target_link_libraries(littlefs-lib INTERFACE hardware_flash hardware_spi pico_stdlib)
+target_link_libraries(littlefs-lib INTERFACE
+    hardware_flash
+    hardware_spi
+    pico_stdlib
+    FreeRTOS-Kernel
+    FreeRTOS-Kernel-Heap4)
 target_sources(littlefs-lib INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/lfs.c
     ${CMAKE_CURRENT_LIST_DIR}/lfs.h

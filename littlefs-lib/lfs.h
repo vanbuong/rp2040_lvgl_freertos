@@ -656,7 +656,8 @@ int lfs_fs_traverse(int (*cb)(void*, lfs_block_t), void* data);
 // Allocate memory, only used if buffers are not provided to littlefs
 // Note, memory must be 64-bit aligned
 static inline void* lfs_malloc(size_t size) {
-    return malloc(size);
+    //return malloc(size);
+    return pvPortMalloc(size);
 }
 
 #ifdef __cplusplus

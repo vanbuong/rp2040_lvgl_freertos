@@ -87,7 +87,7 @@ static inline void write_enable(void) {
 }
 
 static int pico_hal_init(void) {
-    spi_init(PICO_FLASH_SPI_CHAN, 25 * 1000 * 1000);
+    spi_init(PICO_FLASH_SPI_CHAN, 1 * 1000 * 1000);
 	gpio_set_function(PICO_FLASH_SPI_MISO, GPIO_FUNC_SPI);
 	gpio_set_function(PICO_FLASH_SPI_MOSI, GPIO_FUNC_SPI);
 	gpio_set_function(PICO_FLASH_SPI_SCK, GPIO_FUNC_SPI);
@@ -96,6 +96,15 @@ static int pico_hal_init(void) {
 	gpio_init(PICO_FLASH_SPI_CS);
 	gpio_set_dir(PICO_FLASH_SPI_CS, GPIO_OUT);
 	gpio_put(PICO_FLASH_SPI_CS, 1);
+
+    //Read Manufacter ID
+    uint8_t cmd[] = {0x90, 0x00, 0x00, 0x00};
+    uint8_t data[2];
+    cs_select();
+    spi_write_blocking(PICO_FLASH_SPI_CHAN, cmd, sizeof(cmd));
+    spi_read_blocking(PICO_FLASH_SPI_CHAN, 0xff, data, sizeof(data));
+    cs_deselect();
+    printf("Manufacturer/Deveice ID, M = 0x%02x, D = 0x%02x\r\n", data[0], data[1]);
 }
 
 static int pico_hal_read(lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size) {
@@ -196,6 +205,7 @@ float hal_elapsed(void) { return (time_us_32() - tm) / 1000000.0; }
 // posix emulation
 
 int pico_mount(bool format) {
+    pico_hal_init();
 #if LIB_PICO_MULTICORE
     recursive_mutex_init(&fs_mtx);
 #endif

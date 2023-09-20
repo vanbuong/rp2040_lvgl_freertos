@@ -270,16 +270,89 @@ void rfid_callback(void *data)
     lv_event_send(screen1, LV_EVENT_REFRESH, (void*)str);
 }
 
+void cmd_ls(void) {
+    struct lfs_info info;
+    char fpname[] = "/";
+
+    int stat_err = lfs_stat(fpname, &info);
+    if (stat_err < 0) {
+        printf("ls: %s: err=%d (%s)\n", fpname, stat_err,
+                pico_errmsg(stat_err));
+        return stat_err;
+    }
+    if (info.type == LFS_TYPE_REG) {
+        printf("file %8ld  %s\n", info.size, info.name);
+    }
+    else if (info.type == LFS_TYPE_DIR) {
+        lfs_dir_t dir;
+        int		  err = lfs_dir_open(&dir, fpname);
+        if (err) {
+            printf("pico_open_dir(%s) test, fr=%d (%s)\n", fpname, err,
+                        pico_errmsg(err));
+        }
+        struct lfs_info info;
+        while (true) {
+            int res = lfs_dir_read(&dir, &info);
+            if (res <= 0) {
+                break;
+            }
+            switch (info.type) {
+            case LFS_TYPE_REG:
+                printf("file %8ld  %s\n", info.size, info.name);
+                break;
+            case LFS_TYPE_DIR:
+                printf("dir  %8ld  %s\n", info.size, info.name);
+                break;
+            default:
+                printf("???  %8ld  %s\n", info.size, info.name);
+                break;
+            }
+        }
+        lfs_dir_close(&dir);
+    }
+}
+
+const char text[] = "I configured the LFS filesystem with SPI clock speed 100 Mhz, when trying to write continuously a structure value of 64bytes, after 8 to 9 structure data, my NOR flash device is returning me busy and write enable. SPI data transmission is continuously done without end."\
+    "Hence, I changed the design for each write, file open and close, in this case, at some lines, my file close is taking me too much of time. To write my entire data (2560 byte) it takes me 27 Sec, which is not acceptable.";
 void lfs_init(void) {
     struct pico_fsstat_t stat;
+    char file_name[32];
 
-	int fmount = pico_mount(false);
+    int fmount = pico_mount(false);
 	if (fmount == 0) {
 		pico_fsstat(&stat);
 		printf("LFS: blocks %d, block size %d, used %d\n", (int)stat.block_count, (int)stat.block_size,
 				(int)stat.blocks_used);
-		return;
-	}
+        absolute_time_t time = get_absolute_time();
+        printf("Start write\n");
+        // Test open and write file
+        for (int i = 0; i < 100; i++) {
+            snprintf(file_name, sizeof(file_name), "File_no_%d", i);
+            int fd = pico_open(file_name, LFS_O_CREAT | LFS_O_RDWR);
+
+            if (fd < 0) {
+                printf("Failed to open file %d\n", i);
+                break;
+            }
+            int write_byte = pico_write(fd, text, sizeof(text));
+            if (write_byte != sizeof(text)) {
+                pico_close(fd);
+                printf("Failed to write file %d, with %d bytes out of %d bytes\n", i, write_byte, sizeof(text));
+                break;
+            }
+            pico_close(fd);
+        }
+        int64_t diff = absolute_time_diff_us(time, get_absolute_time());
+        printf("Total time %lld microsecond\n", diff);
+        cmd_ls();
+        printf("Remove all file\n");
+        for (int i = 0; i < 100; i++) {
+            snprintf(file_name, sizeof(file_name), "File_no_%d", i);
+            pico_remove(file_name);
+        }
+        printf("Remove all file done\n");
+        return;
+    }
 	/* fmount failed, try initialize(format) LFS partition */
 	printf("pico_mount(no-format) FAIL err=%d (%s).\n", fmount, pico_errmsg(fmount));
 	fmount = pico_mount(true);

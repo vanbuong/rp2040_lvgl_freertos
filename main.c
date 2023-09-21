@@ -64,6 +64,7 @@
 #include "sntp.h"
 #include "lfs.h"
 #include "pico_hal.h"
+#include "mpu6050.h"
 
 /* Library includes. */
 #include <stdio.h>
@@ -314,7 +315,7 @@ void cmd_ls(void) {
 
 const char text[] = "I configured the LFS filesystem with SPI clock speed 100 Mhz, when trying to write continuously a structure value of 64bytes, after 8 to 9 structure data, my NOR flash device is returning me busy and write enable. SPI data transmission is continuously done without end."\
     "Hence, I changed the design for each write, file open and close, in this case, at some lines, my file close is taking me too much of time. To write my entire data (2560 byte) it takes me 27 Sec, which is not acceptable.";
-void lfs_init(void) {
+void lfs_init(void* param) {
     struct pico_fsstat_t stat;
     char file_name[32];
 
@@ -323,6 +324,7 @@ void lfs_init(void) {
 		pico_fsstat(&stat);
 		printf("LFS: blocks %d, block size %d, used %d\n", (int)stat.block_count, (int)stat.block_size,
 				(int)stat.blocks_used);
+#if TEST                
         absolute_time_t time = get_absolute_time();
         printf("Start write\n");
         // Test open and write file
@@ -351,7 +353,8 @@ void lfs_init(void) {
             pico_remove(file_name);
         }
         printf("Remove all file done\n");
-        return;
+#endif        
+        goto TaskDelete;
     }
 	/* fmount failed, try initialize(format) LFS partition */
 	printf("pico_mount(no-format) FAIL err=%d (%s).\n", fmount, pico_errmsg(fmount));
@@ -359,9 +362,93 @@ void lfs_init(void) {
 	if (fmount) {
 		/* really failed */
 		printf("pico_mount(en-format) FAIL err=%d (%s).\n", fmount, pico_errmsg(fmount));
-		return;
+		goto TaskDelete;
 	}
+TaskDelete:
+    vTaskDelete(NULL);
 }
+
+void checkSettings()
+{
+
+    printf(" * Sleep Mode:                ");
+    printf(mpu6050_getSleepEnabled() ? "Enabled\n" : "Disabled\n");
+
+    printf(" * Motion Interrupt:     ");
+    printf(mpu6050_getIntMotionEnabled() ? "Enabled\n" : "Disabled\n");
+
+    printf(" * Zero Motion Interrupt:     ");
+    printf(mpu6050_getIntZeroMotionEnabled() ? "Enabled\n" : "Disabled\n");
+
+    printf(" * Free Fall Interrupt:       ");
+    printf(mpu6050_getIntFreeFallEnabled() ? "Enabled\n" : "Disabled\n");
+
+    printf(" * Motion Threshold:          %d\n", mpu6050_getMotionDetectionThreshold());
+    printf(" * Motion Duration:           %d\n", mpu6050_getMotionDetectionDuration());
+    printf(" * Zero Motion Threshold:     %d\n", mpu6050_getZeroMotionDetectionThreshold());
+    printf(" * Zero Motion Duration:      %d\n", mpu6050_getZeroMotionDetectionDuration());
+
+    printf(" * Clock Source:              ");
+    switch(mpu6050_getClockSource())
+    {
+        case MPU6050_CLOCK_KEEP_RESET:     printf("Stops the clock and keeps the timing generator in reset\n"); break;
+        case MPU6050_CLOCK_EXTERNAL_19MHZ: printf("PLL with external 19.2MHz reference\n"); break;
+        case MPU6050_CLOCK_EXTERNAL_32KHZ: printf("PLL with external 32.768kHz reference\n"); break;
+        case MPU6050_CLOCK_PLL_ZGYRO:      printf("PLL with Z axis gyroscope reference\n"); break;
+        case MPU6050_CLOCK_PLL_YGYRO:      printf("PLL with Y axis gyroscope reference\n"); break;
+        case MPU6050_CLOCK_PLL_XGYRO:      printf("PLL with X axis gyroscope reference\n"); break;
+        case MPU6050_CLOCK_INTERNAL_8MHZ:  printf("Internal 8MHz oscillator\n"); break;
+    }
+
+    printf(" * Accelerometer:             ");
+    switch(mpu6050_getRange())
+    {
+        case MPU6050_RANGE_16G:            printf("+/- 16 g\n"); break;
+        case MPU6050_RANGE_8G:             printf("+/- 8 g\n"); break;
+        case MPU6050_RANGE_4G:             printf("+/- 4 g\n"); break;
+        case MPU6050_RANGE_2G:             printf("+/- 2 g\n"); break;
+    }  
+
+    printf(" * Accelerometer offsets:     %d / %d / %d\n", 
+        mpu6050_getAccelOffsetX(), mpu6050_getAccelOffsetY(), mpu6050_getAccelOffsetZ());
+
+
+    printf(" * Accelerometer power delay: ");
+    switch(mpu6050_getAccelPowerOnDelay())
+    {
+        case MPU6050_DELAY_3MS:            printf("3ms\n"); break;
+        case MPU6050_DELAY_2MS:            printf("2ms\n"); break;
+        case MPU6050_DELAY_1MS:            printf("1ms\n"); break;
+        case MPU6050_NO_DELAY:             printf("0ms\n"); break;
+    }
+}
+
+void mpu6050_task(void* param)
+{
+    printf("Initialize MPU6050\n");
+
+    while(!mpu6050_begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G, MPU6050_ADDRESS)) {
+        printf("Could not find a valid MPU6050 sensor, check wiring!\n");
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    mpu6050_calibrateGyro(50);
+    mpu6050_setThreshold(3);
+
+    while(1) {
+        // float temp = mpu6050_readTemperature();
+        // printf("Temp = %.02f*C\n", temp);
+
+        Vector rawGyro = mpu6050_readRawGyro();
+        Vector normGyro = mpu6050_readNormalizeGyro();
+
+        printf("Xraw = %.2f, Yraw = %.2f, Zraw - %.2f\n", rawGyro.XAxis, rawGyro.YAxis, rawGyro.ZAxis);
+        printf("Xnorm = %.2f, Ynorm = %.2f, Znorm - %.2f\n", normGyro.XAxis, normGyro.YAxis, normGyro.ZAxis);
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+
+}
+
 int main( void )
 {
     TimerHandle_t xExampleSoftwareTimer = NULL;
@@ -370,9 +457,11 @@ int main( void )
     prvSetupHardware();
     gui_init();
     //rfid_init();
-    lfs_init();
+    //lfs_init();
 
     xTaskCreate(gui_task, "gui_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(lfs_init, "lfs_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
+    xTaskCreate(mpu6050_task, "mpu6050_task", configMINIMAL_STACK_SIZE * 4, NULL, tskIDLE_PRIORITY + 1, NULL);
     //xTaskCreate(rfid_task, "rfid_task", configMINIMAL_STACK_SIZE, &rfid_callback, tskIDLE_PRIORITY + 1, NULL);
     //xTaskCreate(lwesp_init_thread, "lwesp_init_task", configMINIMAL_STACK_SIZE * 4, NULL, configMAX_PRIORITIES - 1, NULL);
 

@@ -27,6 +27,7 @@ set(CMAKE_CXX_STANDARD 17)
 pico_sdk_init()
 
 add_subdirectory(littlefs-lib)
+add_subdirectory(mpu6050)
 
 add_executable(lvgl_freertos
         main.c
@@ -68,6 +69,7 @@ target_link_libraries(lvgl_freertos
         pico_time
         lwesp
         littlefs-lib
+        mpu6050-lib
         )
 
 pico_add_extra_outputs(lvgl_freertos)
